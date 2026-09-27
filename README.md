@@ -44,14 +44,14 @@ Windows' Settings > Set up a kiosk only lists Store apps and Edge, so the kiosk 
    2. Open **Command Prompt** with **Run as administrator**.
    3. Run:
       ```
-      cd C:\Tools\PSTools
+      cd C:\GitHub\hchm-extraordinary-stories\PSTools
       PsExec.exe -i -s powershell.exe
       ```
       The first time, accept the Sysinternals license prompt. `-s` runs as SYSTEM, and `-i` opens the window on your desktop.
    4. In the new PowerShell window, run `whoami`. It must print `nt authority\system`. If it prints your own user name, close it and repeat step 3 from an administrator Command Prompt.
 3. In that SYSTEM window, run the setup script (use the path to your clone of this repo):
    ```
-   powershell -ExecutionPolicy Bypass -File C:\path\to\hchm-extraordinary-stories\scripts\setup-kiosk.ps1
+   powershell -ExecutionPolicy Bypass -File C:\GitHub\hchm-extraordinary-stories\scripts\setup-kiosk.ps1
    ```
    If the app isn't in `C:\Program Files\Extraordinary Stories\`, add `-AppPath "D:\...\Extraordinary Stories.exe"`.
 4. Restart.
@@ -60,7 +60,7 @@ Windows creates a kiosk account, signs into it at boot, and relaunches the app i
 
 If the kiosk shows "We weren't able to start your app" (0x80004005), try the restricted user experience instead by adding `-Mode Restricted` to the setup command. Windows then signs into the kiosk account, hides the taskbar, allows only this app to run, and launches it at sign-in; the app covers the screen itself. The difference is that Windows won't relaunch the app if it quits.
 
-To undo it, sign in with an admin account, open a SYSTEM PowerShell the same way (step 2), run `powershell -ExecutionPolicy Bypass -File C:\path\to\hchm-extraordinary-stories\scripts\remove-kiosk.ps1`, and restart.
+To undo it, sign in with an admin account, open a SYSTEM PowerShell the same way (step 2), run `powershell -ExecutionPolicy Bypass -File C:\GitHub\hchm-extraordinary-stories\scripts\remove-kiosk.ps1`, and restart.
 
 ## Troubleshooting on Windows
 
