@@ -1,6 +1,6 @@
 # The Theater of Extraordinary Stories
 
-Electron + React + TypeScript kiosk for the Harrison County Historical Museum. A pull screen shows four comic covers; tapping one reveals that story's video through a comic-burst transition mask, and the video starts once the transition finishes. When the video ends (or is tapped, or Escape is pressed) the app returns to the pull screen.
+Electron + React + TypeScript kiosk for the Harrison County Historical Museum. A pull screen shows four comic covers; tapping one reveals that story's video through a comic-burst transition mask, and the video starts once the transition finishes. When the video ends the app returns to the pull screen on its own. Visitors' touches can't skip out of a story; staff can mouse-click the video or press Escape.
 
 ```bash
 npm install
@@ -33,3 +33,15 @@ They are not bundled by Vite. The main process serves them to the page as `media
 The app always opens fullscreen in kiosk mode; quit with Cmd+Q (macOS) or Alt+F4 (Windows).
 
 If a video is missing, the app logs an error and stays on the pull screen.
+
+## Windows kiosk setup
+
+Windows' Settings > Set up a kiosk only lists Store apps and Edge, so the kiosk is configured with a script instead.
+
+1. `npm run dist:win`, then copy `dist\win-unpacked\` to `C:\Program Files\Extraordinary Stories\`.
+2. Open an admin Command Prompt and start a SYSTEM PowerShell with [PsExec](https://learn.microsoft.com/sysinternals/downloads/psexec): `PsExec.exe -i -s powershell.exe`
+3. In that window: `powershell -ExecutionPolicy Bypass -File <repo>\scripts\setup-kiosk.ps1`, then restart.
+
+Windows creates a kiosk account, signs into it at boot, and relaunches the app if it closes. Staff exit with Ctrl+Alt+Del and sign out.
+
+To undo it, run `scripts\remove-kiosk.ps1` the same way and restart.
