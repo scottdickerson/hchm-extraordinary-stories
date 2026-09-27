@@ -46,7 +46,8 @@ function StoryVideo({ story, onDone }: { story: Story; onDone: () => void }) {
         e.currentTarget.play()
       }}
       onEnded={onDone}
-      onClick={onDone}
+      // Staff can mouse-click out of a story; visitors' touches (and pens) are ignored.
+      onPointerUp={(e) => e.pointerType === 'mouse' && onDone()}
       onError={() => {
         console.error(`Could not load ${src}`)
         onDone()
