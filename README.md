@@ -39,9 +39,23 @@ If a video is missing, the app logs an error and stays on the pull screen.
 Windows' Settings > Set up a kiosk only lists Store apps and Edge, so the kiosk is configured with a script instead.
 
 1. `npm run dist:win`, then copy `dist\win-unpacked\` to `C:\Program Files\Extraordinary Stories\`.
-2. Open an admin Command Prompt and start a SYSTEM PowerShell with [PsExec](https://learn.microsoft.com/sysinternals/downloads/psexec): `PsExec.exe -i -s powershell.exe`
-3. In that window: `powershell -ExecutionPolicy Bypass -File <repo>\scripts\setup-kiosk.ps1`, then restart.
+2. Open a PowerShell window running as SYSTEM. The kiosk configuration can only be written by Windows' built-in SYSTEM account, not by an Administrator, so use PsExec:
+   1. Download [PsTools](https://learn.microsoft.com/sysinternals/downloads/psexec) and unzip it, for example to `C:\Tools\PSTools`.
+   2. Open **Command Prompt** with **Run as administrator**.
+   3. Run:
+      ```
+      cd C:\Tools\PSTools
+      PsExec.exe -i -s powershell.exe
+      ```
+      The first time, accept the Sysinternals license prompt. `-s` runs as SYSTEM, and `-i` opens the window on your desktop.
+   4. In the new PowerShell window, run `whoami`. It must print `nt authority\system`. If it prints your own user name, close it and repeat step 3 from an administrator Command Prompt.
+3. In that SYSTEM window, run the setup script (use the path to your clone of this repo):
+   ```
+   powershell -ExecutionPolicy Bypass -File C:\path\to\hchm-extraordinary-stories\scripts\setup-kiosk.ps1
+   ```
+   If the app isn't in `C:\Program Files\Extraordinary Stories\`, add `-AppPath "D:\...\Extraordinary Stories.exe"`.
+4. Restart.
 
 Windows creates a kiosk account, signs into it at boot, and relaunches the app if it closes. Staff exit with Ctrl+Alt+Del and sign out.
 
-To undo it, run `scripts\remove-kiosk.ps1` the same way and restart.
+To undo it, sign in with an admin account, open a SYSTEM PowerShell the same way (step 2), run `powershell -ExecutionPolicy Bypass -File C:\path\to\hchm-extraordinary-stories\scripts\remove-kiosk.ps1`, and restart.
