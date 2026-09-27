@@ -58,6 +58,8 @@ Windows' Settings > Set up a kiosk only lists Store apps and Edge, so the kiosk 
 
 Windows creates a kiosk account, signs into it at boot, and relaunches the app if it closes. Staff exit with Ctrl+Alt+Del and sign out.
 
+The script also turns off two Windows features for every account on the PC (including admin accounts) so touch gestures can't open the Windows shell: swipe-in from any screen edge (`AllowEdgeSwipe` = 0) and the Search interface (`DisableSearch` = 1). The remove script turns them back on.
+
 If the kiosk shows "We weren't able to start your app" (0x80004005), try the restricted user experience instead by adding `-Mode Restricted` to the setup command. Windows then signs into the kiosk account, hides the taskbar, allows only this app to run, and launches it at sign-in; the app covers the screen itself. The difference is that Windows won't relaunch the app if it quits.
 
 To undo it, sign in with an admin account, open a SYSTEM PowerShell the same way (step 2), run `powershell -ExecutionPolicy Bypass -File C:\GitHub\hchm-extraordinary-stories\scripts\remove-kiosk.ps1`, and restart.
@@ -163,6 +165,27 @@ OneDrive is installed separately in each account ("user scope"), so `winget unin
 Restart; the kiosk should sign in without the popup.
 
 The app itself never needs another program allowed: all of Electron's background processes run from the same `Extraordinary Stories.exe`.
+
+### Swiping from an edge opens the taskbar, Start, or Search
+
+`setup-kiosk.ps1` sets the policies that block this; restart after running it. To set them by hand (admin PowerShell, then restart):
+
+```powershell
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\EdgeUI" /v AllowEdgeSwipe /t REG_DWORD /d 0 /f
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search" /v DisableSearch /t REG_DWORD /d 1 /f
+```
+
+`DisableSearch` needs a recent Windows 11 (22H2 or later, as far as we know); check with `winver`. To undo them by hand:
+
+```powershell
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\EdgeUI" /v AllowEdgeSwipe /f
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search" /v DisableSearch /f
+```
+
+If a gesture still gets through, check these in the kiosk account (restricted mode may hide Settings there, so set them before setting up the kiosk):
+
+- **Settings > Bluetooth & devices > Touch > Three- and four-finger touch gestures**: off.
+- **Settings > Personalization > Taskbar > Taskbar behaviors**: turn off any swipe-to-open-Start or swipe-to-show-taskbar option (the name varies between Windows 11 versions).
 
 ### The setup script fails
 

@@ -10,6 +10,10 @@ Windows creates its own kiosk account and signs into it automatically at boot.
                        "We weren't able to start your app". Windows does not relaunch the app
                        if it quits.
 
+Both modes also set two machine-wide policies (every account, including admins) so touch
+gestures can't open the Windows shell: AllowEdgeSwipe=0 (no swipe-in from any screen edge)
+and DisableSearch=1 (no Search UI). -Remove clears them.
+
 Must run as SYSTEM (not just Administrator). From an admin Command Prompt:
   PsExec.exe -i -s powershell.exe
 then in that window:
@@ -32,10 +36,19 @@ if ([Security.Principal.WindowsIdentity]::GetCurrent().Name -ne 'NT AUTHORITY\SY
 
 $obj = Get-CimInstance -Namespace 'root\cimv2\mdm\dmmap' -ClassName 'MDM_AssignedAccess'
 
+# Touch lockdown policies, so gestures can't open the Windows shell.
+$policies = @(
+  @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EdgeUI'; Name = 'AllowEdgeSwipe'; Value = 0 }
+  @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search'; Name = 'DisableSearch'; Value = 1 }
+)
+
 if ($Remove) {
   $obj.Configuration = $null
   Set-CimInstance -CimInstance $obj
-  Write-Host 'Kiosk mode removed. Restart to apply.'
+  foreach ($p in $policies) {
+    Remove-ItemProperty -Path $p.Key -Name $p.Name -ErrorAction SilentlyContinue
+  }
+  Write-Host 'Kiosk mode and touch lockdown policies removed. Restart to apply.'
   return
 }
 
@@ -85,4 +98,11 @@ $profileXml
 
 $obj.Configuration = [System.Net.WebUtility]::HtmlEncode($config)
 Set-CimInstance -CimInstance $obj
-Write-Host "$Mode mode configured to run $AppPath. Restart to apply."
+
+foreach ($p in $policies) {
+  # Only create a missing key: New-Item -Force on an existing key wipes its other values.
+  if (-not (Test-Path $p.Key)) { New-Item -Path $p.Key -Force | Out-Null }
+  New-ItemProperty -Path $p.Key -Name $p.Name -Value $p.Value -PropertyType DWord -Force | Out-Null
+}
+
+Write-Host "$Mode mode configured to run $AppPath, with edge swipes and Search disabled. Restart to apply."
