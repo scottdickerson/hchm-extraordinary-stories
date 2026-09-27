@@ -117,14 +117,18 @@ Press Ctrl+Alt+Del, sign out, and sign in with an admin account.
 In restricted mode only Extraordinary Stories may run, so this popup means something *else* tried to start when the kiosk account signed in and Windows blocked it. Usual suspects on a fresh account: OneDrive setup (runs on every new account's first sign-in), a startup app installed for all users (hardware utilities, Teams, updaters), or Microsoft Edge's background launch.
 
 1. Sign out of the kiosk account (Ctrl+Alt+Del) and sign in with an admin account.
-2. In an admin PowerShell, find what was blocked:
+2. Find out what was blocked. Windows logs every block with the program's full path.
+
+   **PowerShell** (admin). This checks all three AppLocker logs: desktop programs (event 8004), installers and scripts (8007), and Store apps (8022):
    ```powershell
-   Get-WinEvent -LogName "Microsoft-Windows-AppLocker/EXE and DLL" -MaxEvents 30 | Where-Object Id -in 8003,8004 | Format-List TimeCreated, Message
+   Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-AppLocker/EXE and DLL', 'Microsoft-Windows-AppLocker/MSI and Script', 'Microsoft-Windows-AppLocker/Packaged app-Execution'; Id = 8004, 8007, 8022 } -MaxEvents 20 -ErrorAction SilentlyContinue | Format-List TimeCreated, Id, Message
    ```
-   Each entry names the blocked program's full path. If that log is empty, check the other AppLocker logs:
-   ```powershell
-   Get-WinEvent -ListLog *AppLocker* | Select LogName, RecordCount
-   ```
+   Or **Event Viewer**: press Win+R, run `eventvwr.msc`, then open **Applications and Services Logs > Microsoft > Windows > AppLocker** and check **EXE and DLL**, **MSI and Script**, and **Packaged app-Execution** for Error entries.
+
+   Reading the result:
+   - Each entry's message reads like `%OSDRIVE%\USERS\KIOSKUSER0\APPDATA\LOCAL\MICROSOFT\ONEDRIVE\ONEDRIVE.EXE was prevented from running.` The path is the program to deal with.
+   - Match `TimeCreated` to when the kiosk last signed in (the most recent restart), since older entries may be from earlier attempts.
+   - No output means nothing was logged as blocked in those logs. Restart into the kiosk once more so the popup appears, then sign out and run the command again.
 3. Stop it from launching at sign-in rather than allowing it:
    - OneDrive: see below.
    - Other startup apps: **Settings > Apps > Startup**, or Task Manager's **Startup apps** tab.
