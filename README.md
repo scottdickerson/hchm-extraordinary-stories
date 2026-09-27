@@ -61,3 +61,64 @@ Windows creates a kiosk account, signs into it at boot, and relaunches the app i
 If the kiosk shows "We weren't able to start your app" (0x80004005), try the restricted user experience instead by adding `-Mode Restricted` to the setup command. Windows then signs into the kiosk account, hides the taskbar, allows only this app to run, and launches it at sign-in; the app covers the screen itself. The difference is that Windows won't relaunch the app if it quits.
 
 To undo it, sign in with an admin account, open a SYSTEM PowerShell the same way (step 2), run `powershell -ExecutionPolicy Bypass -File C:\path\to\hchm-extraordinary-stories\scripts\remove-kiosk.ps1`, and restart.
+
+## Troubleshooting on Windows
+
+### `npm run dev` fails: `node_modules\electron\dist` is missing
+
+The `electron` package downloads the real Electron app in an install script. If that step was skipped or failed, check:
+
+- Node is 64-bit: `node -p "process.arch"` should print `x64`.
+- npm isn't skipping scripts: `npm config get ignore-scripts` should print `false`.
+- Nothing is skipping the download: `echo $env:ELECTRON_SKIP_BINARY_DOWNLOAD` should print nothing.
+
+If `node node_modules\electron\install.js` fails with "Cannot find native binding for @electron-internal/extract-zip", Windows (usually Smart App Control) is blocking Electron's unzip helper. Install Electron by hand instead, from the repo folder:
+
+```powershell
+Invoke-WebRequest "https://github.com/electron/electron/releases/download/v44.4.5/electron-v44.4.5-win32-x64.zip" -OutFile electron.zip
+Expand-Archive electron.zip -DestinationPath node_modules\electron\dist -Force
+Set-Content node_modules\electron\path.txt "electron.exe" -NoNewline
+Remove-Item electron.zip
+```
+
+The version must match `node_modules\electron\package.json`.
+
+### `npm run dist:win` fails with `ERR_ELECTRON_BUILDER_CANNOT_EXECUTE`
+
+The lines after the error name the helper program that failed.
+
+- "Cannot create symbolic link": turn on **Settings > System > For developers > Developer Mode**, or build from an administrator terminal.
+- A helper was blocked (Windows shows a Smart App Control notice): turn Smart App Control off (below).
+
+### The kiosk shows "We weren't able to start your app" (0x80004005)
+
+Press Ctrl+Alt+Del, sign out, and sign in with an admin account.
+
+1. **Run the app outside the kiosk.** Double-click `C:\Program Files\Extraordinary Stories\Extraordinary Stories.exe`.
+   - A SmartScreen or Smart App Control warning means Windows is blocking the unsigned app; in kiosk mode that warning can't be shown, so the launch fails. If the files came from a download or zip, clear the "downloaded from the internet" mark in an admin PowerShell:
+     ```powershell
+     Get-ChildItem "C:\Program Files\Extraordinary Stories" -Recurse | Unblock-File
+     ```
+     and turn Smart App Control off (below).
+   - If it closes right away or shows an error, the app itself is failing, not the kiosk setup.
+2. **Ask Windows why.** In an admin PowerShell, list the kiosk and code-blocking logs:
+   ```powershell
+   Get-WinEvent -ListLog *AssignedAccess*, *CodeIntegrity* | Select LogName, RecordCount
+   ```
+   Then read each one, for example:
+   ```powershell
+   Get-WinEvent -LogName "Microsoft-Windows-CodeIntegrity/Operational" -MaxEvents 15 | Format-List TimeCreated, Id, Message
+   ```
+   CodeIntegrity events that mention `Extraordinary Stories.exe` mean Windows blocked the unsigned app. AssignedAccess errors usually name the reason.
+3. **Try the restricted user experience:** rerun `setup-kiosk.ps1 -Mode Restricted` from a SYSTEM PowerShell and restart.
+
+### The setup script fails
+
+- "Run this as SYSTEM": the window isn't running as SYSTEM. `whoami` must print `nt authority\system`; see the PsExec steps above.
+- `Set-CimInstance` errors: Assigned Access needs Windows 11 **Pro**, Enterprise, or Education (not Home). Check under **Settings > System > About**.
+- "App not found": copy `dist\win-unpacked\` to `C:\Program Files\Extraordinary Stories\`, or pass `-AppPath`.
+- "No videos found": the `resources\videos\` folder didn't come along with the app folder.
+
+### Smart App Control
+
+Smart App Control blocks unsigned apps and native modules, which includes this app and parts of the build tools. Check it under **Windows Security > App & browser control > Smart App Control**. For a dedicated kiosk running this unsigned app, set it to **Off**. On many Windows 11 versions it can't be turned back on without resetting Windows; Microsoft Defender antivirus keeps running either way.
