@@ -126,8 +126,37 @@ In restricted mode only Extraordinary Stories may run, so this popup means somet
    Get-WinEvent -ListLog *AppLocker* | Select LogName, RecordCount
    ```
 3. Stop it from launching at sign-in rather than allowing it:
-   - OneDrive: `winget uninstall Microsoft.OneDrive`, or remove it under **Settings > Apps > Installed apps**.
+   - OneDrive: see below.
    - Other startup apps: **Settings > Apps > Startup**, or Task Manager's **Startup apps** tab.
+
+#### Stopping OneDrive in the kiosk account
+
+OneDrive is installed separately in each account ("user scope"), so `winget uninstall Microsoft.OneDrive` fails from an administrator terminal ("Package installed for user scope cannot be uninstalled when running with administrator privileges"). Uninstalling it from your own account wouldn't help anyway: the kiosk account gets its own copy at first sign-in. Remove its startup entry instead, from your admin account with the kiosk account **signed out** (its registry file is locked while it's signed in):
+
+1. Find the kiosk account's folder (Assigned Access usually names it `kioskUser0`):
+   ```powershell
+   dir C:\Users
+   ```
+2. Load its registry and list its startup entries (admin PowerShell):
+   ```powershell
+   reg load HKU\KioskUser "C:\Users\kioskUser0\NTUSER.DAT"
+   reg query HKU\KioskUser\Software\Microsoft\Windows\CurrentVersion\Run
+   ```
+3. Delete the OneDrive entry, using the exact name from the query output (usually `OneDrive` or `OneDriveSetup`):
+   ```powershell
+   reg delete HKU\KioskUser\Software\Microsoft\Windows\CurrentVersion\Run /v OneDrive /f
+   ```
+4. Unload the registry. Don't skip this: a hive left loaded can break the kiosk account's sign-in.
+   ```powershell
+   reg unload HKU\KioskUser
+   ```
+5. Repeat steps 2–4 for `C:\Users\Default\NTUSER.DAT`, the template for new accounts, so a recreated kiosk account doesn't get OneDrive back.
+6. Optional: turn OneDrive off machine-wide.
+   ```powershell
+   reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\OneDrive" /v DisableFileSyncNGSC /t REG_DWORD /d 1 /f
+   ```
+
+Restart; the kiosk should sign in without the popup.
 
 The app itself never needs another program allowed: all of Electron's background processes run from the same `Extraordinary Stories.exe`.
 
