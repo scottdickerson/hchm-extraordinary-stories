@@ -112,6 +112,58 @@ Press Ctrl+Alt+Del, sign out, and sign in with an admin account.
    CodeIntegrity events that mention `Extraordinary Stories.exe` mean Windows blocked the unsigned app. AssignedAccess errors usually name the reason.
 3. **Try the restricted user experience:** rerun `setup-kiosk.ps1 -Mode Restricted` from a SYSTEM PowerShell and restart.
 
+### Restricted mode: "This app has been blocked by your system administrator"
+
+In restricted mode only Extraordinary Stories may run, so this popup means something *else* tried to start when the kiosk account signed in and Windows blocked it. Usual suspects on a fresh account: OneDrive setup (runs on every new account's first sign-in), a startup app installed for all users (hardware utilities, Teams, updaters), or Microsoft Edge's background launch.
+
+1. Sign out of the kiosk account (Ctrl+Alt+Del) and sign in with an admin account.
+2. Find out what was blocked. Windows logs every block with the program's full path.
+
+   **PowerShell** (admin). This checks all three AppLocker logs: desktop programs (event 8004), installers and scripts (8007), and Store apps (8022):
+   ```powershell
+   Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-AppLocker/EXE and DLL', 'Microsoft-Windows-AppLocker/MSI and Script', 'Microsoft-Windows-AppLocker/Packaged app-Execution'; Id = 8004, 8007, 8022 } -MaxEvents 20 -ErrorAction SilentlyContinue | Format-List TimeCreated, Id, Message
+   ```
+   Or **Event Viewer**: press Win+R, run `eventvwr.msc`, then open **Applications and Services Logs > Microsoft > Windows > AppLocker** and check **EXE and DLL**, **MSI and Script**, and **Packaged app-Execution** for Error entries.
+
+   Reading the result:
+   - Each entry's message reads like `%OSDRIVE%\USERS\KIOSKUSER0\APPDATA\LOCAL\MICROSOFT\ONEDRIVE\ONEDRIVE.EXE was prevented from running.` The path is the program to deal with.
+   - Match `TimeCreated` to when the kiosk last signed in (the most recent restart), since older entries may be from earlier attempts.
+   - No output means nothing was logged as blocked in those logs. Restart into the kiosk once more so the popup appears, then sign out and run the command again.
+3. Stop it from launching at sign-in rather than allowing it:
+   - OneDrive: see below.
+   - Other startup apps: **Settings > Apps > Startup**, or Task Manager's **Startup apps** tab.
+
+#### Stopping OneDrive in the kiosk account
+
+OneDrive is installed separately in each account ("user scope"), so `winget uninstall Microsoft.OneDrive` fails from an administrator terminal ("Package installed for user scope cannot be uninstalled when running with administrator privileges"). Uninstalling it from your own account wouldn't help anyway: the kiosk account gets its own copy at first sign-in. Remove its startup entry instead, from your admin account with the kiosk account **signed out** (its registry file is locked while it's signed in):
+
+1. Find the kiosk account's folder (Assigned Access usually names it `kioskUser0`):
+   ```powershell
+   dir C:\Users
+   ```
+2. Load its registry and list its startup entries (admin PowerShell):
+   ```powershell
+   reg load HKU\KioskUser "C:\Users\kioskUser0\NTUSER.DAT"
+   reg query HKU\KioskUser\Software\Microsoft\Windows\CurrentVersion\Run
+   ```
+3. Delete the OneDrive entry, using the exact name from the query output (usually `OneDrive` or `OneDriveSetup`):
+   ```powershell
+   reg delete HKU\KioskUser\Software\Microsoft\Windows\CurrentVersion\Run /v OneDrive /f
+   ```
+4. Unload the registry. Don't skip this: a hive left loaded can break the kiosk account's sign-in.
+   ```powershell
+   reg unload HKU\KioskUser
+   ```
+5. Repeat steps 2–4 for `C:\Users\Default\NTUSER.DAT`, the template for new accounts, so a recreated kiosk account doesn't get OneDrive back.
+6. Optional: turn OneDrive off machine-wide.
+   ```powershell
+   reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\OneDrive" /v DisableFileSyncNGSC /t REG_DWORD /d 1 /f
+   ```
+
+Restart; the kiosk should sign in without the popup.
+
+The app itself never needs another program allowed: all of Electron's background processes run from the same `Extraordinary Stories.exe`.
+
 ### The setup script fails
 
 - "Run this as SYSTEM": the window isn't running as SYSTEM. `whoami` must print `nt authority\system`; see the PsExec steps above.
