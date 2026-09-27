@@ -58,4 +58,6 @@ Windows' Settings > Set up a kiosk only lists Store apps and Edge, so the kiosk 
 
 Windows creates a kiosk account, signs into it at boot, and relaunches the app if it closes. Staff exit with Ctrl+Alt+Del and sign out.
 
+If the kiosk shows "We weren't able to start your app" (0x80004005), try the restricted user experience instead by adding `-Mode Restricted` to the setup command. Windows then signs into the kiosk account, hides the taskbar, allows only this app to run, and launches it at sign-in; the app covers the screen itself. The difference is that Windows won't relaunch the app if it quits.
+
 To undo it, sign in with an admin account, open a SYSTEM PowerShell the same way (step 2), run `powershell -ExecutionPolicy Bypass -File C:\path\to\hchm-extraordinary-stories\scripts\remove-kiosk.ps1`, and restart.
