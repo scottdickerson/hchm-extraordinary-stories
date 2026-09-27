@@ -47,11 +47,7 @@
       }
     ],
     "win": {
-      "target": "nsis"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "target": "zip"
     },
     "mac": {
       "target": "dmg"

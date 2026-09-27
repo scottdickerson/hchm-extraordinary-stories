@@ -1,4 +1,4 @@
-import { app, BrowserWindow, net, protocol } from 'electron'
+import { app, BrowserWindow, net, powerSaveBlocker, protocol } from 'electron'
 import { basename, join } from 'path'
 import { pathToFileURL } from 'url'
 
@@ -28,6 +28,14 @@ app.whenReady().then(() => {
     kiosk: true,
     backgroundColor: '#000',
     autoHideMenuBar: true,
+  })
+
+  // Unattended exhibit: keep the display on, and bring the page back if Chromium's renderer dies
+  // (bad decode, GPU out of memory) instead of leaving a black screen.
+  powerSaveBlocker.start('prevent-display-sleep')
+  win.webContents.on('render-process-gone', (_e, details) => {
+    console.error(`Renderer gone (${details.reason}), reloading`)
+    win.reload()
   })
 
   if (process.env.ELECTRON_RENDERER_URL) {

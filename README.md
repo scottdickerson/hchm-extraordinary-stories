@@ -8,7 +8,7 @@ npm run dev        # hot reload
 npm run build      # bundle to out/
 npm start          # run the built app
 npm run typecheck
-npm run dist:win   # Windows installer in dist/ (run on Windows)
+npm run dist:win   # Windows app folder in dist/win-unpacked/ + a zip of it (run on Windows)
 npm run dist:mac   # macOS .dmg in dist/
 ```
 
