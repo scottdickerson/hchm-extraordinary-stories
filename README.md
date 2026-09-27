@@ -112,6 +112,25 @@ Press Ctrl+Alt+Del, sign out, and sign in with an admin account.
    CodeIntegrity events that mention `Extraordinary Stories.exe` mean Windows blocked the unsigned app. AssignedAccess errors usually name the reason.
 3. **Try the restricted user experience:** rerun `setup-kiosk.ps1 -Mode Restricted` from a SYSTEM PowerShell and restart.
 
+### Restricted mode: "This app has been blocked by your system administrator"
+
+In restricted mode only Extraordinary Stories may run, so this popup means something *else* tried to start when the kiosk account signed in and Windows blocked it. Usual suspects on a fresh account: OneDrive setup (runs on every new account's first sign-in), a startup app installed for all users (hardware utilities, Teams, updaters), or Microsoft Edge's background launch.
+
+1. Sign out of the kiosk account (Ctrl+Alt+Del) and sign in with an admin account.
+2. In an admin PowerShell, find what was blocked:
+   ```powershell
+   Get-WinEvent -LogName "Microsoft-Windows-AppLocker/EXE and DLL" -MaxEvents 30 | Where-Object Id -in 8003,8004 | Format-List TimeCreated, Message
+   ```
+   Each entry names the blocked program's full path. If that log is empty, check the other AppLocker logs:
+   ```powershell
+   Get-WinEvent -ListLog *AppLocker* | Select LogName, RecordCount
+   ```
+3. Stop it from launching at sign-in rather than allowing it:
+   - OneDrive: `winget uninstall Microsoft.OneDrive`, or remove it under **Settings > Apps > Installed apps**.
+   - Other startup apps: **Settings > Apps > Startup**, or Task Manager's **Startup apps** tab.
+
+The app itself never needs another program allowed: all of Electron's background processes run from the same `Extraordinary Stories.exe`.
+
 ### The setup script fails
 
 - "Run this as SYSTEM": the window isn't running as SYSTEM. `whoami` must print `nt authority\system`; see the PsExec steps above.
