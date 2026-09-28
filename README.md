@@ -53,12 +53,36 @@ Windows' Settings > Set up a kiosk only lists Store apps and Edge, so the kiosk 
    ```
    powershell -ExecutionPolicy Bypass -File C:\GitHub\hchm-extraordinary-stories\scripts\setup-kiosk.ps1
    ```
-   If the app isn't in `C:\Program Files\Extraordinary Stories\`, add `-AppPath "D:\...\Extraordinary Stories.exe"`.
-4. Restart.
+   If the app isn't in `C:\Program Files\Extraordinary Stories\`, add `-AppPath "D:\...\Extraordinary Stories.exe"`. To restart for updates at a different hour than 3 AM, add `-UpdateHour 5` (0–23).
+4. Restart. The kiosk account signs in for the first time, which creates it.
+5. Turn off the kiosk account's own popups. Press Ctrl+Alt+Del, sign out, sign in with an admin account, and in an **administrator** PowerShell (SYSTEM isn't needed) run:
+   ```
+   powershell -ExecutionPolicy Bypass -File C:\GitHub\hchm-extraordinary-stories\scripts\kiosk-user-settings.ps1
+   ```
+   If the kiosk account's folder isn't `C:\Users\kioskUser0` (check with `dir C:\Users`), add `-ProfilePath C:\Users\<folder>`.
+6. Restart.
 
 Windows creates a kiosk account, signs into it at boot, and relaunches the app if it closes. Staff exit with Ctrl+Alt+Del and sign out.
 
-The script also turns off two Windows features for every account on the PC (including admin accounts) so touch gestures can't open the Windows shell: swipe-in from any screen edge (`AllowEdgeSwipe` = 0) and the Search interface (`DisableSearch` = 1). The remove script turns them back on.
+`setup-kiosk.ps1` also sets these for every account on the PC, including admin accounts. The remove script clears them, except the power settings.
+
+- **Touch gestures can't open Windows:** no swipe-in from any screen edge (`AllowEdgeSwipe` = 0) and no Search interface (`DisableSearch` = 1).
+- **Windows Update without popups:** no update notifications or restart warnings. Updates install automatically and the PC restarts every day at 3 AM (`-UpdateHour`); the kiosk signs back in on its own.
+- **No Windows Security popups** (Defender keeps protecting the PC) and **no "has stopped working" crash dialogs**.
+- **Power:** never sleep, never turn off the display, hibernate off.
+
+`kiosk-user-settings.ps1` handles popups that belong to the kiosk account itself, in that account and in the Default profile (the template for new accounts): app notifications (including the Windows Backup reminder), the notification panel, "Let's finish setting up your device", the welcome screen after updates, tips and suggestions, and OneDrive starting at sign-in.
+
+### Before leaving it unattended
+
+These can't be scripted:
+
+- **Power back on after an outage:** turn on *Restore on AC power loss* (or similar) in the BIOS.
+- **BitLocker / device encryption:** if it's on, a BIOS or firmware change can stop the PC at a recovery-key screen at boot. Save the key from account.microsoft.com/devices/recoverykey, or turn it off under **Settings > Privacy & security > Device encryption**.
+- **Vendor startup apps** (graphics or audio control panels) trigger the "blocked by your system administrator" popup in restricted mode. Find them with the AppLocker command under Troubleshooting and remove them from **Settings > Apps > Startup** or uninstall them.
+- **Volume:** set it once while signed in as the kiosk account.
+- **Remote maintenance (optional):** set up a remote tool such as Quick Assist if the PC is hard to reach.
+- **Test:** restart twice, then leave it running overnight and check it after the first 3 AM update restart.
 
 If the kiosk shows "We weren't able to start your app" (0x80004005), try the restricted user experience instead by adding `-Mode Restricted` to the setup command. Windows then signs into the kiosk account, hides the taskbar, allows only this app to run, and launches it at sign-in; the app covers the screen itself. The difference is that Windows won't relaunch the app if it quits.
 
@@ -136,6 +160,8 @@ In restricted mode only Extraordinary Stories may run, so this popup means somet
    - Other startup apps: **Settings > Apps > Startup**, or Task Manager's **Startup apps** tab.
 
 #### Stopping OneDrive in the kiosk account
+
+`kiosk-user-settings.ps1` does this automatically (setup step 5). The manual steps below do the same thing.
 
 OneDrive is installed separately in each account ("user scope"), so `winget uninstall Microsoft.OneDrive` fails from an administrator terminal ("Package installed for user scope cannot be uninstalled when running with administrator privileges"). Uninstalling it from your own account wouldn't help anyway: the kiosk account gets its own copy at first sign-in. Remove its startup entry instead, from your admin account with the kiosk account **signed out** (its registry file is locked while it's signed in):
 
