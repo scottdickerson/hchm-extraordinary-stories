@@ -19,6 +19,9 @@ Both modes also set machine-wide policies (every account, including admins):
     causes "blocked" popups in restricted mode.
   - Windows Update: no update notifications or restart warnings; updates install and the PC
     restarts daily at -UpdateHour (default 3 = 3 AM). The kiosk signs back in on its own.
+    With -NoUpdates, automatic updates are turned off instead (NoAutoUpdate=1); run Windows
+    Update by hand from an admin account now and then. Rerunning without -NoUpdates switches
+    back to the nightly schedule.
   - No Windows Security notifications (Defender keeps running) and no crash dialogs.
   - Power: never sleep, never turn off the display, hibernate off.
 -Remove clears the policies (power settings are left as they are, and removed apps aren't
@@ -41,6 +44,7 @@ param(
   [string]$Mode = 'Kiosk',
   [ValidateRange(0, 23)]
   [int]$UpdateHour = 3,
+  [switch]$NoUpdates,
   [switch]$Remove
 )
 $ErrorActionPreference = 'Stop'
@@ -64,20 +68,30 @@ $policies = @(
   # Windows Update: no notifications (2 = none, including restart warnings) ...
   @{ Key = $wu; Name = 'SetUpdateNotificationLevel'; Value = 1 }
   @{ Key = $wu; Name = 'UpdateNotificationLevel'; Value = 2 }
-  # ... and auto-install with a daily (0 = every day) restart at $UpdateHour.
-  @{ Key = "$wu\AU"; Name = 'AUOptions'; Value = 4 }
-  @{ Key = "$wu\AU"; Name = 'ScheduledInstallDay'; Value = 0 }
-  @{ Key = "$wu\AU"; Name = 'ScheduledInstallTime'; Value = $UpdateHour }
   # No Windows Security popups (protection stays on) and no "has stopped working" dialogs.
   @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender Security Center\Notifications'; Name = 'DisableNotifications'; Value = 1 }
   @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting'; Name = 'DontShowUI'; Value = 1 }
 )
 
+# Windows Update schedule: auto-install with a daily (0 = every day) restart at $UpdateHour ...
+$updateSchedule = @(
+  @{ Key = "$wu\AU"; Name = 'AUOptions'; Value = 4 }
+  @{ Key = "$wu\AU"; Name = 'ScheduledInstallDay'; Value = 0 }
+  @{ Key = "$wu\AU"; Name = 'ScheduledInstallTime'; Value = $UpdateHour }
+)
+# ... or, with -NoUpdates, no automatic updates at all.
+$updatesOff = @(
+  @{ Key = "$wu\AU"; Name = 'NoAutoUpdate'; Value = 1 }
+)
+# Set the chosen one; the other goes on the cleared list so switching modes doesn't leave both.
+if ($NoUpdates) { $policies += $updatesOff; $unusedUpdates = $updateSchedule }
+else { $policies += $updateSchedule; $unusedUpdates = $updatesOff }
+
 # Set by earlier versions of this script; always cleared now. DisableSearch was machine-wide and
 # took Search away from admins too.
 $retired = @(
   @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search'; Name = 'DisableSearch' }
-)
+) + $unusedUpdates
 
 if ($Remove) {
   $obj.Configuration = $null
@@ -177,4 +191,5 @@ powercfg /change monitor-timeout-ac 0
 powercfg /hibernate off
 
 $policyNote = if ($skipped) { "$($skipped.Count) kiosk setting(s) skipped (see warnings above)" } else { 'Kiosk settings applied' }
-Write-Host "$Mode mode configured to run $AppPath. $policyNote; updates restart the PC daily at ${UpdateHour}:00. Restart to apply."
+$updateNote = if ($NoUpdates) { 'automatic Windows updates are off' } else { "updates restart the PC daily at ${UpdateHour}:00" }
+Write-Host "$Mode mode configured to run $AppPath. $policyNote; $updateNote. Restart to apply."

@@ -53,7 +53,7 @@ Windows' Settings > Set up a kiosk only lists Store apps and Edge, so the kiosk 
    ```
    powershell -ExecutionPolicy Bypass -File C:\GitHub\hchm-extraordinary-stories\scripts\setup-kiosk.ps1
    ```
-   If the app isn't in `C:\Program Files\Extraordinary Stories\`, add `-AppPath "D:\...\Extraordinary Stories.exe"`. To restart for updates at a different hour than 3 AM, add `-UpdateHour 5` (0–23).
+   If the app isn't in `C:\Program Files\Extraordinary Stories\`, add `-AppPath "D:\...\Extraordinary Stories.exe"`. To restart for updates at a different hour than 3 AM, add `-UpdateHour 5` (0–23). To turn automatic updates off instead, add `-NoUpdates` (see [Windows Update](#windows-update-nightly-off-or-offline)).
 4. Restart. The kiosk account signs in for the first time, which creates it.
 5. Turn off the kiosk account's own popups. Press Ctrl+Alt+Del, sign out, sign in with an admin account, and in an **administrator** PowerShell (SYSTEM isn't needed) run:
    ```
@@ -71,7 +71,7 @@ Windows creates a kiosk account, signs into it at boot, and relaunches the app i
 - **No Store apps running in the background** (`LetAppsRunInBackground` = 2, Force Deny), and in restricted mode Windows' background-task host (`backgroundTaskHost.exe`) is allowed. Both are there to stop "blocked" popups from Store apps' background tasks.
 
 Search stays available to admin accounts. Earlier versions of the script turned Search off for every account (`DisableSearch`); running the current script clears that.
-- **Windows Update without popups:** no update notifications or restart warnings. Updates install automatically and the PC restarts every day at 3 AM (`-UpdateHour`); the kiosk signs back in on its own.
+- **Windows Update without popups:** no update notifications or restart warnings. By default updates install automatically and the PC restarts every day at 3 AM (`-UpdateHour`); the kiosk signs back in on its own. With `-NoUpdates`, automatic updates are off instead.
 - **No Windows Security popups** (Defender keeps protecting the PC) and **no "has stopped working" crash dialogs**.
 - **Power:** never sleep, never turn off the display, hibernate off.
 
@@ -86,7 +86,21 @@ These can't be scripted:
 - **Vendor startup apps** (graphics or audio control panels) trigger the "blocked by your system administrator" popup in restricted mode. Find them with the AppLocker command under Troubleshooting and remove them from **Settings > Apps > Startup** or uninstall them.
 - **Volume:** set it once while signed in as the kiosk account.
 - **Remote maintenance (optional):** set up a remote tool such as Quick Assist if the PC is hard to reach.
-- **Test:** restart twice, then leave it running overnight and check it after the first 3 AM update restart.
+- **Test:** restart twice, then leave it running overnight. With the default update schedule, check it after the first 3 AM update restart.
+
+### Windows Update: nightly, off, or offline
+
+Pick one:
+
+- **Nightly (default).** Updates install automatically and the PC restarts at 3 AM (`-UpdateHour` to change the hour). Keeps the PC patched with no one involved; the screen is dark for a few minutes each night.
+- **Off (`-NoUpdates`).** Rerun the setup script with `-NoUpdates`:
+  ```
+  powershell -ExecutionPolicy Bypass -File C:\GitHub\hchm-extraordinary-stories\scripts\setup-kiosk.ps1 -Mode Restricted -NoUpdates
+  ```
+  This sets `NoAutoUpdate` = 1, the supported "Configure Automatic Updates: Disabled" policy. Windows stops downloading and installing updates on its own, so the PC no longer gets security fixes unless someone signs in to the admin account and runs **Settings > Windows Update** by hand; plan to do that every month or two if the kiosk is online. Don't disable the Windows Update *service* instead: Windows' repair service turns it back on. Rerunning the script without `-NoUpdates` switches back to the nightly schedule.
+- **Offline.** The app never needs the internet (the videos are on the PC), so the most reliable option is to disconnect the kiosk from the network: unplug the network cable, or forget the Wi-Fi network in the admin account. No updates, no update restarts, and Microsoft Store can't reinstall apps such as Game Bar or OneDrive. Reconnect when you want to update it by hand. This works with either setting above.
+
+If you use `-NoUpdates` or offline, the care guide's note about the screen going dark around 3 AM no longer applies.
 
 If the kiosk shows "We weren't able to start your app" (0x80004005), try the restricted user experience instead by adding `-Mode Restricted` to the setup command. Windows then signs into the kiosk account, hides the taskbar, allows only this app to run, and launches it at sign-in; the app covers the screen itself. The difference is that Windows won't relaunch the app if it quits.
 
