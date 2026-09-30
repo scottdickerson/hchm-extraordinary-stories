@@ -1,7 +1,8 @@
 <#
 Turns off per-account popups for the kiosk account: app notifications (including the
 Windows Backup reminder), the notification panel, "Let's finish setting up your device",
-the welcome screen after updates, tips and suggestions, and OneDrive starting at sign-in.
+the welcome screen after updates, tips and suggestions, the search box, and OneDrive starting
+at sign-in.
 
 These are per-account settings, so they're written into the kiosk account's registry file
 and into the Default profile (the template for new accounts, in case the kiosk account is
@@ -28,6 +29,8 @@ $settings = @(
   @{ Key = 'Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement'; Name = 'ScoobeSystemSettingEnabled'; Value = 0 }
   @{ Key = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'; Name = 'SubscribedContent-310093Enabled'; Value = 0 }
   @{ Key = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'; Name = 'SubscribedContent-338389Enabled'; Value = 0 }
+  # Hide the search box (0 = hidden). Search stays available to admin accounts.
+  @{ Key = 'Software\Microsoft\Windows\CurrentVersion\Search'; Name = 'SearchboxTaskbarMode'; Value = 0 }
 )
 
 function Set-AccountSettings([string]$HiveFile, [string]$Label) {

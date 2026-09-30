@@ -66,12 +66,15 @@ Windows creates a kiosk account, signs into it at boot, and relaunches the app i
 
 `setup-kiosk.ps1` also sets these for every account on the PC, including admin accounts. The remove script clears them, except the power settings.
 
-- **Touch gestures can't open Windows:** no swipe-in from any screen edge (`AllowEdgeSwipe` = 0) and no Search interface (`DisableSearch` = 1).
+- **Touch gestures can't open Windows:** no swipe-in from any screen edge (`AllowEdgeSwipe` = 0), and no Widgets board (`AllowNewsAndInterests` = 0).
+- **In restricted mode, Windows' background-task host is allowed** (`backgroundTaskHost.exe`), so Store apps' background tasks don't trigger "blocked" popups.
+
+Search stays available to admin accounts. Earlier versions of the script turned Search off for every account (`DisableSearch`); running the current script clears that.
 - **Windows Update without popups:** no update notifications or restart warnings. Updates install automatically and the PC restarts every day at 3 AM (`-UpdateHour`); the kiosk signs back in on its own.
 - **No Windows Security popups** (Defender keeps protecting the PC) and **no "has stopped working" crash dialogs**.
 - **Power:** never sleep, never turn off the display, hibernate off.
 
-`kiosk-user-settings.ps1` handles popups that belong to the kiosk account itself, in that account and in the Default profile (the template for new accounts): app notifications (including the Windows Backup reminder), the notification panel, "Let's finish setting up your device", the welcome screen after updates, tips and suggestions, and OneDrive starting at sign-in.
+`kiosk-user-settings.ps1` handles popups that belong to the kiosk account itself, in that account and in the Default profile (the template for new accounts): app notifications (including the Windows Backup reminder), the notification panel, "Let's finish setting up your device", the welcome screen after updates, tips and suggestions, the search box, and OneDrive starting at sign-in.
 
 ### Before leaving it unattended
 
@@ -190,21 +193,32 @@ OneDrive is installed separately in each account ("user scope"), so `winget unin
 
 Restart; the kiosk should sign in without the popup.
 
+#### `WidgetBoard.exe` or `backgroundTaskHost.exe` is blocked
+
+Both are part of Windows, not the app. Rerun `setup-kiosk.ps1 -Mode Restricted` from a SYSTEM PowerShell and restart; it handles both:
+
+- **`WidgetBoard.exe`** is the Widgets board. The script turns Widgets off for every account. By hand (admin PowerShell, then restart):
+  ```powershell
+  reg add "HKLM\SOFTWARE\Policies\Microsoft\Dsh" /v AllowNewsAndInterests /t REG_DWORD /d 0 /f
+  ```
+  Undo with `reg delete "HKLM\SOFTWARE\Policies\Microsoft\Dsh" /v AllowNewsAndInterests /f`.
+- **`backgroundTaskHost.exe`** runs background tasks for Store apps and Windows features. Blocking it does nothing useful and only causes popups, so the script adds it to the kiosk's allowed apps. If it's still blocked afterwards, check which apps are allowed to run in the background under **Settings > Apps > Installed apps** (each app's **Advanced options**), and uninstall Store apps the kiosk doesn't need.
+
 The app itself never needs another program allowed: all of Electron's background processes run from the same `Extraordinary Stories.exe`.
 
 ### Swiping from an edge opens the taskbar, Start, or Search
 
-`setup-kiosk.ps1` sets the policies that block this; restart after running it. To set them by hand (admin PowerShell, then restart):
+`setup-kiosk.ps1` turns off edge swipes for every account; restart after running it. To set it by hand (admin PowerShell, then restart):
 
 ```powershell
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\EdgeUI" /v AllowEdgeSwipe /t REG_DWORD /d 0 /f
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search" /v DisableSearch /t REG_DWORD /d 1 /f
 ```
 
-`DisableSearch` needs a recent Windows 11 (22H2 or later, as far as we know); check with `winver`. To undo them by hand:
+Undo with `reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\EdgeUI" /v AllowEdgeSwipe /f`.
+
+Search is only turned off for the kiosk account: with edge swipes off, the taskbar hidden, and no keyboard out, there's no way to reach it, and `kiosk-user-settings.ps1` also hides the search box there. Windows' own `DisableSearch` policy can't be limited to one account, so it isn't used. If an earlier version of the script set it and admin accounts have no Search, remove it:
 
 ```powershell
-reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\EdgeUI" /v AllowEdgeSwipe /f
 reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search" /v DisableSearch /f
 ```
 

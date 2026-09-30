@@ -11,7 +11,9 @@ Windows creates its own kiosk account and signs into it automatically at boot.
                        if it quits.
 
 Both modes also set machine-wide policies (every account, including admins):
-  - Touch lockdown: no swipe-in from any screen edge (AllowEdgeSwipe=0), no Search UI (DisableSearch=1).
+  - Touch lockdown: no swipe-in from any screen edge (AllowEdgeSwipe=0), no Widgets board
+    (AllowNewsAndInterests=0). Search stays on for admins; kiosk-user-settings.ps1 hides the
+    search box in the kiosk account only.
   - Windows Update: no update notifications or restart warnings; updates install and the PC
     restarts daily at -UpdateHour (default 3 = 3 AM). The kiosk signs back in on its own.
   - No Windows Security notifications (Defender keeps running) and no crash dialogs.
@@ -49,7 +51,8 @@ $wu = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
 $policies = @(
   # Touch gestures can't open the Windows shell.
   @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EdgeUI'; Name = 'AllowEdgeSwipe'; Value = 0 }
-  @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search'; Name = 'DisableSearch'; Value = 1 }
+  # No Widgets board (WidgetBoard.exe), which restricted mode would otherwise block with a popup.
+  @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh'; Name = 'AllowNewsAndInterests'; Value = 0 }
   # Windows Update: no notifications (2 = none, including restart warnings) ...
   @{ Key = $wu; Name = 'SetUpdateNotificationLevel'; Value = 1 }
   @{ Key = $wu; Name = 'UpdateNotificationLevel'; Value = 2 }
@@ -62,10 +65,16 @@ $policies = @(
   @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting'; Name = 'DontShowUI'; Value = 1 }
 )
 
+# Set by earlier versions of this script; always cleared now. DisableSearch was machine-wide and
+# took Search away from admins too.
+$retired = @(
+  @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search'; Name = 'DisableSearch' }
+)
+
 if ($Remove) {
   $obj.Configuration = $null
   Set-CimInstance -CimInstance $obj
-  foreach ($p in $policies) {
+  foreach ($p in $policies + $retired) {
     Remove-ItemProperty -Path $p.Key -Name $p.Name -ErrorAction SilentlyContinue
   }
   Write-Host 'Kiosk mode and kiosk policies removed. Restart to apply.'
@@ -92,6 +101,8 @@ if ($Mode -eq 'Kiosk') {
       <AllAppsList>
         <AllowedApps>
           <App DesktopAppPath="$escapedPath" rs5:AutoLaunch="true" />
+          <!-- Windows' host for Store apps' background tasks; blocking it only causes popups. -->
+          <App DesktopAppPath="%windir%\System32\backgroundTaskHost.exe" />
         </AllowedApps>
       </AllAppsList>
       <v5:StartPins><![CDATA[{ "pinnedList": [] }]]></v5:StartPins>
@@ -123,6 +134,9 @@ foreach ($p in $policies) {
   # Only create a missing key: New-Item -Force on an existing key wipes its other values.
   if (-not (Test-Path $p.Key)) { New-Item -Path $p.Key -Force | Out-Null }
   New-ItemProperty -Path $p.Key -Name $p.Name -Value $p.Value -PropertyType DWord -Force | Out-Null
+}
+foreach ($p in $retired) {
+  Remove-ItemProperty -Path $p.Key -Name $p.Name -ErrorAction SilentlyContinue
 }
 
 # Never sleep or blank the screen on AC power; the app also holds the display awake while running.
