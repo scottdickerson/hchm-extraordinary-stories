@@ -130,10 +130,20 @@ $profileXml
 $obj.Configuration = [System.Net.WebUtility]::HtmlEncode($config)
 Set-CimInstance -CimInstance $obj
 
+$skipped = @()
 foreach ($p in $policies) {
-  # Only create a missing key: New-Item -Force on an existing key wipes its other values.
-  if (-not (Test-Path $p.Key)) { New-Item -Path $p.Key -Force | Out-Null }
-  New-ItemProperty -Path $p.Key -Name $p.Name -Value $p.Value -PropertyType DWord -Force | Out-Null
+  try {
+    # Only create a missing key: New-Item -Force on an existing key wipes its other values.
+    if (-not (Test-Path $p.Key)) { New-Item -Path $p.Key -Force | Out-Null }
+    New-ItemProperty -Path $p.Key -Name $p.Name -Value $p.Value -PropertyType DWord -Force | Out-Null
+  } catch {
+    # Tamper Protection refuses Defender policy keys even for SYSTEM; don't let one refusal stop the rest.
+    Write-Warning "Couldn't set $($p.Name) in $($p.Key): $($_.Exception.Message)"
+    $skipped += $p
+  }
+}
+if ($skipped | Where-Object { $_.Key -like '*Windows Defender*' }) {
+  Write-Warning 'Windows Security notifications are still on: Tamper Protection blocks that setting. To set it, turn off Windows Security > Virus & threat protection > Manage settings > Tamper Protection, rerun this script, then turn Tamper Protection back on.'
 }
 foreach ($p in $retired) {
   Remove-ItemProperty -Path $p.Key -Name $p.Name -ErrorAction SilentlyContinue
@@ -144,4 +154,5 @@ powercfg /change standby-timeout-ac 0
 powercfg /change monitor-timeout-ac 0
 powercfg /hibernate off
 
-Write-Host "$Mode mode configured to run $AppPath. Kiosk policies set; updates restart the PC daily at ${UpdateHour}:00. Restart to apply."
+$policyNote = if ($skipped) { "$($skipped.Count) kiosk setting(s) skipped (see warnings above)" } else { 'Kiosk settings applied' }
+Write-Host "$Mode mode configured to run $AppPath. $policyNote; updates restart the PC daily at ${UpdateHour}:00. Restart to apply."

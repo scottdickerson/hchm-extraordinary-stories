@@ -229,6 +229,8 @@ If a gesture still gets through, check these in the kiosk account (restricted mo
 
 ### The setup script fails
 
+- A warning that a setting couldn't be set, or "Attempted to perform an unauthorized operation": Windows refused that one registry setting, and the script carried on with the rest. The usual case is the Windows Security notifications setting, which **Tamper Protection** blocks even for SYSTEM. To apply it, turn off **Windows Security > Virus & threat protection > Manage settings > Tamper Protection**, rerun the script, then turn Tamper Protection back on. Or leave it: the only effect is that Windows Security notifications can still appear.
+
 - "Run this as SYSTEM": the window isn't running as SYSTEM. `whoami` must print `nt authority\system`; see the PsExec steps above.
 - `Set-CimInstance` errors: Assigned Access needs Windows 11 **Pro**, Enterprise, or Education (not Home). Check under **Settings > System > About**.
 - "App not found": copy `dist\win-unpacked\` to `C:\Program Files\Extraordinary Stories\`, or pass `-AppPath`.
