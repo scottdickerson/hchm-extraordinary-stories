@@ -12,13 +12,17 @@ Windows creates its own kiosk account and signs into it automatically at boot.
 
 Both modes also set machine-wide policies (every account, including admins):
   - Touch lockdown: no swipe-in from any screen edge (AllowEdgeSwipe=0), no Widgets board
-    (AllowNewsAndInterests=0), no Store apps running in the background (LetAppsRunInBackground=2). Search stays on for admins; kiosk-user-settings.ps1 hides the
-    search box in the kiosk account only.
+    (AllowNewsAndInterests=0), no Store apps running in the background (LetAppsRunInBackground=2).
+    Search stays on for admins; kiosk-user-settings.ps1 hides the search box in the kiosk account only.
+  - No Xbox Game Bar: game recording off (AllowGameDVR=0), and the Game Bar app is uninstalled
+    for every account. It treats the fullscreen kiosk app as a game and its background task
+    causes "blocked" popups in restricted mode.
   - Windows Update: no update notifications or restart warnings; updates install and the PC
     restarts daily at -UpdateHour (default 3 = 3 AM). The kiosk signs back in on its own.
   - No Windows Security notifications (Defender keeps running) and no crash dialogs.
   - Power: never sleep, never turn off the display, hibernate off.
--Remove clears the policies (power settings are left as they are).
+-Remove clears the policies (power settings are left as they are, and removed apps aren't
+reinstalled; get them back from the Microsoft Store if needed).
 
 Per-account popups (notifications, backup reminder, "finish setting up", OneDrive) are handled
 by kiosk-user-settings.ps1, which runs while the kiosk account is signed out.
@@ -55,6 +59,8 @@ $policies = @(
   @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh'; Name = 'AllowNewsAndInterests'; Value = 0 }
   # Store apps can't run in the background (2 = Force Deny), so backgroundTaskHost.exe isn't launched for them.
   @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy'; Name = 'LetAppsRunInBackground'; Value = 2 }
+  # No Windows game recording, which Xbox Game Bar is built on.
+  @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\GameDVR'; Name = 'AllowGameDVR'; Value = 0 }
   # Windows Update: no notifications (2 = none, including restart warnings) ...
   @{ Key = $wu; Name = 'SetUpdateNotificationLevel'; Value = 1 }
   @{ Key = $wu; Name = 'UpdateNotificationLevel'; Value = 2 }
@@ -149,6 +155,20 @@ if ($skipped | Where-Object { $_.Key -like '*Windows Defender*' }) {
 }
 foreach ($p in $retired) {
   Remove-ItemProperty -Path $p.Key -Name $p.Name -ErrorAction SilentlyContinue
+}
+
+# Store apps the kiosk doesn't need whose background tasks trigger "blocked" popups. Removed for
+# every account and from the image for new accounts. Add more package names here if the
+# AppLocker logs point at another one.
+$removeApps = @('Microsoft.XboxGamingOverlay')
+foreach ($name in $removeApps) {
+  try {
+    Get-AppxPackage -AllUsers -Name $name | Remove-AppxPackage -AllUsers
+    Get-AppxProvisionedPackage -Online | Where-Object DisplayName -eq $name | Remove-AppxProvisionedPackage -Online | Out-Null
+    Write-Host "Removed $name (if it was installed)."
+  } catch {
+    Write-Warning "Couldn't remove $name`: $($_.Exception.Message). Try from an admin PowerShell: Get-AppxPackage -AllUsers $name | Remove-AppxPackage -AllUsers"
+  }
 }
 
 # Never sleep or blank the screen on AC power; the app also holds the display awake while running.

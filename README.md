@@ -67,6 +67,7 @@ Windows creates a kiosk account, signs into it at boot, and relaunches the app i
 `setup-kiosk.ps1` also sets these for every account on the PC, including admin accounts. The remove script clears them, except the power settings.
 
 - **Touch gestures can't open Windows:** no swipe-in from any screen edge (`AllowEdgeSwipe` = 0), and no Widgets board (`AllowNewsAndInterests` = 0).
+- **No Xbox Game Bar:** game recording is off (`AllowGameDVR` = 0) and the Game Bar app (`Microsoft.XboxGamingOverlay`) is uninstalled for every account. Game Bar treats the fullscreen kiosk app as a game, and its background task causes "blocked" popups in restricted mode. The remove script doesn't reinstall it; get it from the Microsoft Store if you ever need it.
 - **No Store apps running in the background** (`LetAppsRunInBackground` = 2, Force Deny), and in restricted mode Windows' background-task host (`backgroundTaskHost.exe`) is allowed. Both are there to stop "blocked" popups from Store apps' background tasks.
 
 Search stays available to admin accounts. Earlier versions of the script turned Search off for every account (`DisableSearch`); running the current script clears that.
@@ -208,6 +209,16 @@ Both are part of Windows, not the app. Rerun `setup-kiosk.ps1 -Mode Restricted` 
 - **`backgroundTaskHost.exe`** runs background tasks for Store apps and Windows features. The script adds it to the kiosk's allowed apps and stops Store apps from running in the background. If it's still blocked, see the next section.
 
 #### `backgroundTaskHost.exe` is still blocked
+
+**Seen on this kiosk:** the Store app behind it was **Xbox Game Bar** (`Microsoft.XboxGamingOverlay`). Current versions of `setup-kiosk.ps1` remove it and turn off game recording; rerun the script and restart. If the script warns that it couldn't, do it by hand in an admin PowerShell, then restart:
+
+```powershell
+Get-AppxPackage -AllUsers Microsoft.XboxGamingOverlay | Remove-AppxPackage -AllUsers
+Get-AppxProvisionedPackage -Online | Where-Object DisplayName -eq 'Microsoft.XboxGamingOverlay' | Remove-AppxProvisionedPackage -Online
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\GameDVR" /v AllowGameDVR /t REG_DWORD /d 0 /f
+```
+
+If Windows refuses the `reg add`, use `gpedit.msc`: **Computer Configuration > Administrative Templates > Windows Components > Windows Game Recording and Broadcasting > Enables or disables Windows Game Recording and Broadcasting > Disabled**. If another Xbox app appears in the logs next (for example `Microsoft.GamingApp` or `Microsoft.XboxIdentityProvider`), remove it the same way and add its name to `$removeApps` in `setup-kiosk.ps1`.
 
 The popup names `backgroundTaskHost.exe`, but the block is usually on the Store app it's running a task for, so allowing `backgroundTaskHost.exe` alone doesn't stop it.
 
