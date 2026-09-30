@@ -67,7 +67,7 @@ Windows creates a kiosk account, signs into it at boot, and relaunches the app i
 `setup-kiosk.ps1` also sets these for every account on the PC, including admin accounts. The remove script clears them, except the power settings.
 
 - **Touch gestures can't open Windows:** no swipe-in from any screen edge (`AllowEdgeSwipe` = 0), and no Widgets board (`AllowNewsAndInterests` = 0).
-- **In restricted mode, Windows' background-task host is allowed** (`backgroundTaskHost.exe`), so Store apps' background tasks don't trigger "blocked" popups.
+- **No Store apps running in the background** (`LetAppsRunInBackground` = 2, Force Deny), and in restricted mode Windows' background-task host (`backgroundTaskHost.exe`) is allowed. Both are there to stop "blocked" popups from Store apps' background tasks.
 
 Search stays available to admin accounts. Earlier versions of the script turned Search off for every account (`DisableSearch`); running the current script clears that.
 - **Windows Update without popups:** no update notifications or restart warnings. Updates install automatically and the PC restarts every day at 3 AM (`-UpdateHour`); the kiosk signs back in on its own.
@@ -205,7 +205,34 @@ Both are part of Windows, not the app. Rerun `setup-kiosk.ps1 -Mode Restricted` 
   5. Restart.
 
   To undo, set both back to **Not Configured**. (**Allow widgets = Disabled** is the same setting the script tries to write, `AllowNewsAndInterests` = 0 under `HKLM\SOFTWARE\Policies\Microsoft\Dsh`.)
-- **`backgroundTaskHost.exe`** runs background tasks for Store apps and Windows features. Blocking it does nothing useful and only causes popups, so the script adds it to the kiosk's allowed apps. If it's still blocked afterwards, check which apps are allowed to run in the background under **Settings > Apps > Installed apps** (each app's **Advanced options**), and uninstall Store apps the kiosk doesn't need.
+- **`backgroundTaskHost.exe`** runs background tasks for Store apps and Windows features. The script adds it to the kiosk's allowed apps and stops Store apps from running in the background. If it's still blocked, see the next section.
+
+#### `backgroundTaskHost.exe` is still blocked
+
+The popup names `backgroundTaskHost.exe`, but the block is usually on the Store app it's running a task for, so allowing `backgroundTaskHost.exe` alone doesn't stop it. Work through these in an admin PowerShell:
+
+1. **Check that the entries are new.** Compare `TimeCreated` with your last restart after running the script; older entries are from before the fix.
+   ```powershell
+   Get-WinEvent -LogName "Microsoft-Windows-AppLocker/EXE and DLL" -MaxEvents 20 -ErrorAction SilentlyContinue | Where-Object Message -like '*BACKGROUNDTASKHOST*' | Format-List TimeCreated, Message
+   ```
+   The path should be `System32`. If it's `SysWOW64`, that's the 32-bit copy, which the script doesn't allow.
+2. **Find the Store app behind it.** Look for entries at the same times as step 1; the message names the package (for example `Microsoft.YourPhone`):
+   ```powershell
+   Get-WinEvent -LogName "Microsoft-Windows-AppLocker/Packaged app-Execution" -MaxEvents 20 -ErrorAction SilentlyContinue | Format-List TimeCreated, Id, Message
+   ```
+3. **Stop all Store apps from running in the background.** The script tries to set this; if its output warned that it couldn't, use the Group Policy Editor:
+   1. Press Win+R, run `gpedit.msc`.
+   2. Go to **Computer Configuration > Administrative Templates > Windows Components > App Privacy**.
+   3. Open **Let Windows apps run in the background**, set it to **Enabled**, and under **Default for all apps** choose **Force Deny**.
+   4. Restart.
+
+   This applies to every account, including admins; on a dedicated kiosk that's harmless. It's the same setting as `LetAppsRunInBackground` = 2 under `HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy`. To undo, set it back to **Not Configured**.
+4. **Uninstall the app from step 2** if the popup continues. Replace `Microsoft.YourPhone` with the package name from the log:
+   ```powershell
+   Get-AppxPackage -AllUsers Microsoft.YourPhone | Remove-AppxPackage -AllUsers
+   Get-AppxProvisionedPackage -Online | Where-Object DisplayName -eq 'Microsoft.YourPhone' | Remove-AppxProvisionedPackage -Online
+   ```
+   The second line stops Windows reinstalling it for new accounts. Some packages are part of Windows and can't be removed; if the command refuses, note the package name for the technical contact.
 
 The app itself never needs another program allowed: all of Electron's background processes run from the same `Extraordinary Stories.exe`.
 

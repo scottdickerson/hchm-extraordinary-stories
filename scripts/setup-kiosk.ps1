@@ -12,7 +12,7 @@ Windows creates its own kiosk account and signs into it automatically at boot.
 
 Both modes also set machine-wide policies (every account, including admins):
   - Touch lockdown: no swipe-in from any screen edge (AllowEdgeSwipe=0), no Widgets board
-    (AllowNewsAndInterests=0). Search stays on for admins; kiosk-user-settings.ps1 hides the
+    (AllowNewsAndInterests=0), no Store apps running in the background (LetAppsRunInBackground=2). Search stays on for admins; kiosk-user-settings.ps1 hides the
     search box in the kiosk account only.
   - Windows Update: no update notifications or restart warnings; updates install and the PC
     restarts daily at -UpdateHour (default 3 = 3 AM). The kiosk signs back in on its own.
@@ -53,6 +53,8 @@ $policies = @(
   @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EdgeUI'; Name = 'AllowEdgeSwipe'; Value = 0 }
   # No Widgets board (WidgetBoard.exe), which restricted mode would otherwise block with a popup.
   @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh'; Name = 'AllowNewsAndInterests'; Value = 0 }
+  # Store apps can't run in the background (2 = Force Deny), so backgroundTaskHost.exe isn't launched for them.
+  @{ Key = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy'; Name = 'LetAppsRunInBackground'; Value = 2 }
   # Windows Update: no notifications (2 = none, including restart warnings) ...
   @{ Key = $wu; Name = 'SetUpdateNotificationLevel'; Value = 1 }
   @{ Key = $wu; Name = 'UpdateNotificationLevel'; Value = 2 }
