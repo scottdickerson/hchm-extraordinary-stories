@@ -225,6 +225,21 @@ Read it as:
 - **Only `backgroundTaskHost.exe` entries, no matching Store app**: a part of Windows itself (the Start menu or notifications, for example) is running a background task. These can't be uninstalled.
 - **A `UserId` that isn't the kiosk account**: the block happened in another account, such as the admin account. Some restricted-mode policies also apply to admins.
 
+**No new entries, but the popup still appears?** The block is being logged somewhere else: another AppLocker log (scripts and installers, or Store apps being *installed or updated*, which Windows often does at a new account's first sign-in), or Code Integrity (Smart App Control / Windows Defender Application Control). This checks all of them and lists the newest entries first:
+
+```powershell
+Get-WinEvent -ListLog *AppLocker*, *CodeIntegrity* | Where-Object RecordCount | ForEach-Object { Get-WinEvent -LogName $_.LogName -MaxEvents 5 } | Sort-Object TimeCreated -Descending | Select-Object -First 15 | Format-List TimeCreated, LogName, Id, Message
+```
+
+To catch the right moment: restart and let the kiosk sign in until the popup appears, note the time and the popup's exact wording, then press Ctrl+Alt+Del, sign out, sign in as admin, run the command, and look for entries from that time.
+
+The popup's wording tells you which part of Windows is blocking:
+
+- "This app has been blocked by your system administrator": AppLocker (restricted mode).
+- "Your organization used Device Guard to block this app", or a Smart App Control notice: Code Integrity.
+- "This app has been blocked for your protection": User Account Control, usually an untrusted or revoked signature on the program.
+- "This operation has been cancelled due to restrictions in effect on this computer": a Windows Explorer restriction, which doesn't write an AppLocker entry.
+
 Or work through the checks one at a time, in an admin PowerShell:
 
 1. **Check that the entries are new.** Compare `TimeCreated` with your last restart after running the script; older entries are from before the fix.
