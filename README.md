@@ -204,10 +204,7 @@ Both are part of Windows, not the app. Rerun `setup-kiosk.ps1 -Mode Restricted` 
   4. Open **Disable Widgets Board**, set it to **Enabled**, and click OK.
   5. Restart.
 
-  To undo, set both back to **Not Configured**. By hand, the first one is:
-  ```powershell
-  reg add "HKLM\SOFTWARE\Policies\Microsoft\Dsh" /v AllowNewsAndInterests /t REG_DWORD /d 0 /f
-  ```
+  To undo, set both back to **Not Configured**. (**Allow widgets = Disabled** is the same setting the script tries to write, `AllowNewsAndInterests` = 0 under `HKLM\SOFTWARE\Policies\Microsoft\Dsh`.)
 - **`backgroundTaskHost.exe`** runs background tasks for Store apps and Windows features. Blocking it does nothing useful and only causes popups, so the script adds it to the kiosk's allowed apps. If it's still blocked afterwards, check which apps are allowed to run in the background under **Settings > Apps > Installed apps** (each app's **Advanced options**), and uninstall Store apps the kiosk doesn't need.
 
 The app itself never needs another program allowed: all of Electron's background processes run from the same `Extraordinary Stories.exe`.
