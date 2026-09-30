@@ -197,11 +197,17 @@ Restart; the kiosk should sign in without the popup.
 
 Both are part of Windows, not the app. Rerun `setup-kiosk.ps1 -Mode Restricted` from a SYSTEM PowerShell and restart; it handles both:
 
-- **`WidgetBoard.exe`** is the Widgets board. The script turns Widgets off for every account. By hand (admin PowerShell, then restart):
+- **`WidgetBoard.exe`** is the Widgets board. The script tries to turn Widgets off for every account, but on some PCs Windows refuses that write ("Couldn't set AllowNewsAndInterests in ...\Dsh"). If so, use the Group Policy Editor instead, which has permission to set it:
+  1. Press Win+R, run `gpedit.msc` (included in Windows 11 Pro).
+  2. Go to **Computer Configuration > Administrative Templates > Windows Components > Widgets**.
+  3. Open **Allow widgets**, set it to **Disabled**, and click OK.
+  4. Open **Disable Widgets Board**, set it to **Enabled**, and click OK.
+  5. Restart.
+
+  To undo, set both back to **Not Configured**. By hand, the first one is:
   ```powershell
   reg add "HKLM\SOFTWARE\Policies\Microsoft\Dsh" /v AllowNewsAndInterests /t REG_DWORD /d 0 /f
   ```
-  Undo with `reg delete "HKLM\SOFTWARE\Policies\Microsoft\Dsh" /v AllowNewsAndInterests /f`.
 - **`backgroundTaskHost.exe`** runs background tasks for Store apps and Windows features. Blocking it does nothing useful and only causes popups, so the script adds it to the kiosk's allowed apps. If it's still blocked afterwards, check which apps are allowed to run in the background under **Settings > Apps > Installed apps** (each app's **Advanced options**), and uninstall Store apps the kiosk doesn't need.
 
 The app itself never needs another program allowed: all of Electron's background processes run from the same `Extraordinary Stories.exe`.
