@@ -209,7 +209,23 @@ Both are part of Windows, not the app. Rerun `setup-kiosk.ps1 -Mode Restricted` 
 
 #### `backgroundTaskHost.exe` is still blocked
 
-The popup names `backgroundTaskHost.exe`, but the block is usually on the Store app it's running a task for, so allowing `backgroundTaskHost.exe` alone doesn't stop it. Work through these in an admin PowerShell:
+The popup names `backgroundTaskHost.exe`, but the block is usually on the Store app it's running a task for, so allowing `backgroundTaskHost.exe` alone doesn't stop it.
+
+If there's no popup on screen any more, you can ignore new log entries: Windows keeps retrying some background tasks and they're blocked silently. Only a popup needs fixing.
+
+To see everything at once, run this in an admin PowerShell. It lists recent blocks from both the desktop-program log (event 8004) and the Store-app log (event 8022), with the account each one was for (`UserId`) and, for Store apps, the package name:
+
+```powershell
+Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-AppLocker/EXE and DLL', 'Microsoft-Windows-AppLocker/Packaged app-Execution'; Id = 8004, 8022 } -MaxEvents 10 -ErrorAction SilentlyContinue | Format-List TimeCreated, LogName, Id, UserId, Message
+```
+
+Read it as:
+
+- **A Store-app entry (8022) at the same time as a `backgroundTaskHost.exe` entry**: that package is behind the popup. Uninstall it (step 4).
+- **Only `backgroundTaskHost.exe` entries, no matching Store app**: a part of Windows itself (the Start menu or notifications, for example) is running a background task. These can't be uninstalled.
+- **A `UserId` that isn't the kiosk account**: the block happened in another account, such as the admin account. Some restricted-mode policies also apply to admins.
+
+Or work through the checks one at a time, in an admin PowerShell:
 
 1. **Check that the entries are new.** Compare `TimeCreated` with your last restart after running the script; older entries are from before the fix.
    ```powershell
